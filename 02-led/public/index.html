@@ -1,0 +1,61 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <script src="https://obniz.io/js/jquery-3.2.1.min.js"></script>
+</head>
+
+<body>
+  <div id="obniz-debug">
+    <div id="online-status" style="color: rgb(255, 255, 255); padding: 5px; text-align: center; background-color:orange;">connecting...</div>
+  </div>
+  <h3>Connect From Your Browser</h3>
+  <button class="btn btn-primary m5" id="on" onclick="start();">ON</button>
+  <button class="btn btn-primary m5" id="off" onclick="stop();">OFF</button>
+
+  <div id="recv"></div>
+
+  <script>
+    function start() {
+      fetch('/on')
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status == 'OK') {
+            $('recv').text('Started!');
+          }
+        });
+    }
+    function stop() {
+      fetch('/off')
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status == 'OK') {
+            $('#recv').text('Stoped!');
+          }
+        });
+    }
+    const STATUS_ONLINE_COLOR = 'rgb(49, 150, 93)';
+    const STATUS_OFFLINE_COLOR = 'rgb(217, 83, 79)';
+    // 1秒ごとにobnizのステータスをサーバーに問い合わせる
+    const initInterval = setInterval(function () {
+      fetch('/status')
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status === 'connected') {
+            $('#online-status').text('online');
+            $('#online-status').css('background-color', STATUS_ONLINE_COLOR);
+          } else {
+            $('#online-status').text('offline');
+            $('#online-status').css('background-color', STATUS_OFFLINE_COLOR);
+          }
+        });
+    }, 1000);
+  </script>
+</body>
+
+</html>
