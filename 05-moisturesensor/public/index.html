@@ -1,0 +1,95 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <script src="https://obniz.io/js/jquery-3.2.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.3/Chart.bundle.min.js"></script>
+</head>
+
+<body>
+  <div id="obniz-debug">
+    <div id="online-status"
+      style="color: rgb(255, 255, 255); padding: 5px; text-align: center; background-color:orange;">connecting...</div>
+  </div>
+  <div class="p-1 clearfix">
+    <div id="alert-reset" class="alert alert-success" style="display:none;">計測データをリセットしました。</div>
+    <button class="btn btn-secondary float-right" onclick="reset();">リセット</button>
+  </div>
+  <div>
+    <canvas id="chart"></canvas>
+  </div>
+
+  <div id="recv"></div>
+
+  <script>
+    let hasDried = false;
+    const STATUS_ONLINE_COLOR = 'rgb(49, 150, 93)';
+    const STATUS_OFFLINE_COLOR = 'rgb(217, 83, 79)';
+    function reset() {
+      fetch('/reset')
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status == 'OK') {
+            console.log('データがリセットされました。');
+            $("#alert-reset").show()
+            setTimeout(function () {
+              $("#alert-reset").hide();
+            }, 3000);
+          }
+        });
+    }
+    const initInterval = setInterval(function () {
+      fetch('/status')
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status === 'connected') {
+            $('#online-status').text('online');
+            $('#online-status').css('background-color', STATUS_ONLINE_COLOR);
+          } else {
+            $('#online-status').text('offline');
+            $('#online-status').css('background-color', STATUS_OFFLINE_COLOR);
+          }
+        });
+
+      fetch('/humidities')
+        .then(function (response) {
+          return response.json();
+        }).then(function (humidities) {
+          const last5humidities = humidities.slice(-5);
+          if (last5humidities.length === 5 && last5humidities.every((h) => h.x === 0)) {
+            alert('洗濯物が乾燥しました!');
+          }
+          const ctx = document.getElementById("chart").getContext("2d");
+          const myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: humidities.map((h) => h.t.split('T')[1].split('.')[0]),
+              datasets: [{
+                label: '水分量',
+                data: humidities.map((h) => h.x)
+              }]
+            },
+            options: {
+              animation: false,
+              scales: {
+                yAxes: [
+                  {
+                    ticks: {
+                      beginAtZero: true,
+                      min: 0
+                    }
+                  }
+                ]
+              }
+            }
+          });
+        });
+    }, 1000);
+  </script>
+</body>
+
+</html>
