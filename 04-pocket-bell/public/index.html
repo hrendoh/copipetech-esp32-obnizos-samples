@@ -1,0 +1,158 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <script src="https://obniz.io/js/jquery-3.2.1.min.js"></script>
+  <style>
+    #canvas {
+      border: 1px solid #ccc;
+    }
+
+    textarea {
+      width: 100%;
+      resize: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="obniz-debug">
+    <div id="online-status"
+      style="color: rgb(255, 255, 255); padding: 5px; text-align: center; background-color:orange;">connecting...</div>
+  </div>
+  <div class="p-3 clearfix">
+    <textarea id="text" rows="3" class="mb-1"></textarea>
+    <button class="btn btn-primary m5 float-right" id="off" onclick="send();">メッセージを送信</button>
+  </div>
+  <div id="call-status" style="display:none;">
+    <h3 id="call-status-message" class="text-center"></h3>
+  </div>
+  <div class="p-3">
+    <h3>Preview</h3>
+    <canvas width="320px" height="240px" id="canvas" class="d-block mx-auto"></canvas>
+  </div>
+
+  <script>
+    const WIDTH = 320;
+    const HEIGHT = 240;
+    function drawCtx(message) {
+      const can_2d = document.getElementById('canvas');
+      const ctx_2d = can_2d.getContext('2d');
+      ctx_2d.clearRect(0, 0, WIDTH, HEIGHT);
+      ctx_2d.fillStyle = 'rgb(255,255,255)';
+      ctx_2d.fillRect(0, 0, WIDTH, HEIGHT);
+
+      ctx_2d.fillStyle = "rgb(0,0,0)";
+      ctx_2d.font = "30px 'ＭＳ ゴシック'";
+      ctx_2d.textAlign = "left";
+      ctx_2d.textBaseline = "top";
+
+      fixedFillText(ctx_2d, message, 320, 10, 38);
+      return ctx2data(ctx_2d);
+    }
+
+    // 固定幅で折り返してテキストを表示
+    function fixedFillText(context, text, canvasWidth, padding, lineHight) {
+      let width = canvasWidth - padding * 2;
+      let column = [''], line = 0;
+
+      for (let i = 0; i < text.length; i++) {
+        const char = text.charAt(i);
+        if (char == "\n" || context.measureText(column[line] + char).width > width) {
+          line++;
+          column[line] = '';
+        }
+        column[line] += char;
+      }
+
+      for (let i = 0; i < column.length; i++) {
+        const lineWidth = context.measureText(column[i]).width;
+        context.fillText(column[i], padding, padding + lineHight * i);
+      }
+    }
+
+    // Canvasの画像をバイト配列に変換
+    // https://github.com/obniz/m5stackjs/blob/master/src/component/m5display.ts#L86 のロジックを使用
+    function ctx2data(ctx) {
+      const stride = WIDTH / 8;
+      const vram = new Array(320 * 240);
+      const imageData = ctx.getImageData(0, 0, 320, 240);
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const hexColor = (((data[i] >> 3) & 0x1f) << 11)
+          | (((data[i + 1] >> 2) & 0x3f) << 5)
+          | (((data[i + 2] >> 3) & 0x1f) << 0);
+        const index = Math.floor(i / 4);
+        const line = Math.floor(index / 320);
+        const col = Math.floor(index - line * 320);
+
+        vram[(240 - line - 1) + (320 - col - 1) * 240] = hexColor;
+      }
+      return vram;
+    }
+
+    function calling() {
+      const checkStatusInterval = setInterval(function () {
+        fetch('/call_status')
+          .then(function (response) {
+            return response.text();
+          }).then(function (status) {
+            if (status === 'recieved') {
+              $('#call-status-message').text('受信されました');
+              clearInterval(checkStatusInterval);
+              clearInterval(blinkInterval);
+              setTimeout(function () {
+                $('#call-status').hide();
+              }, 5000)
+            }
+          });
+      }, 1000);
+      const blinkInterval = setInterval(function () {
+        $('#call-status-message').fadeOut(1000);
+        $('#call-status-message').fadeIn(1000);
+      }, 2000);
+    }
+
+    function send() {
+      const message = $('#text').val();
+      const rawData = drawCtx(message);
+      fetch('/send', {
+        method: 'POST',
+        body: JSON.stringify({ 'data': rawData }),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status == 'OK') {
+            $('#call-status-message').text('呼び出し中')
+            $('#call-status').show();
+            calling();
+          }
+        });
+    }
+    const STATUS_ONLINE_COLOR = 'rgb(49, 150, 93)';
+    const STATUS_OFFLINE_COLOR = 'rgb(217, 83, 79)';
+    const initInterval = setInterval(function () {
+      fetch('/status')
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status === 'connected') {
+            $('#online-status').text('online');
+            $('#online-status').css('background-color', STATUS_ONLINE_COLOR);
+          } else {
+            $('#online-status').text('offline');
+            $('#online-status').css('background-color', STATUS_OFFLINE_COLOR);
+          }
+        });
+    }, 1000)
+  </script>
+</body>
+
+</html>
