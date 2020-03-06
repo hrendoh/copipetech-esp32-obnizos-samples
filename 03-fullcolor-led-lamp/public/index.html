@@ -1,0 +1,55 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/css/bootstrap4-toggle.min.css">
+  <script src="https://obniz.io/js/jquery-3.2.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/gitbrent/bootstrap4-toggle@3.6.1/js/bootstrap4-toggle.min.js"></script>
+</head>
+
+<body>
+  <div id="obniz-debug">
+    <div id="online-status" style="color: rgb(255, 255, 255); padding: 5px; text-align: center; background-color:orange;">connecting...</div>
+  </div>
+  <div class="p-3">
+    <h3>ランプ点灯</h3>
+    <input id="switch" type="checkbox" data-toggle="toggle" >
+  </div>
+
+  <div id="recv"></div>
+
+  <script>
+    $(function(){
+      $('#switch').change(function(){
+        const isOn = $(this).prop('checked');
+        const action = isOn ? '/on' : '/off';
+        fetch(action)
+          .then(function (response) {
+            return response.text();
+          }).then(function (status) {
+            console.log(status);
+          });
+        });
+    });
+    const STATUS_ONLINE_COLOR = 'rgb(49, 150, 93)';
+    const STATUS_OFFLINE_COLOR = 'rgb(217, 83, 79)';
+    const initInterval = setInterval(function () {
+      fetch('/status')
+        .then(function (response) {
+          return response.text();
+        }).then(function (status) {
+          if (status === 'connected') {
+            $('#online-status').text('online');
+            $('#online-status').css('background-color', STATUS_ONLINE_COLOR);
+          } else {
+            $('#online-status').text('offline');
+            $('#online-status').css('background-color', STATUS_OFFLINE_COLOR);
+          }
+        });
+    }, 1000);
+  </script>
+</body>
+
+</html>
